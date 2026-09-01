@@ -226,7 +226,7 @@ enum CodexAccountMenuProjectionRevalidationResult: Equatable {
 @MainActor
 @Observable
 final class SettingsStore {
-    static let sharedDefaults = AppGroupSupport.sharedDefaults()
+    static let sharedDefaults = SettingsStore.resolveSharedDefaults()
     static let mergedOverviewProviderLimit = 6
     static let productionCodexAccountReconciliationSnapshotCacheInterval: TimeInterval = 2
     static let isRunningTests: Bool = {
@@ -277,17 +277,15 @@ final class SettingsStore {
     @ObservationIgnored var providerConfigRevisions: [ProviderInstanceID: UInt64] = [:]
     @ObservationIgnored var providerConfigFingerprints: [ProviderInstanceID: Data] = [:]
 
-    static func shouldBridgeSharedDefaults(for userDefaults: UserDefaults) -> Bool {
-        if !self.isRunningTests {
-            return true
-        }
-        if userDefaults === UserDefaults.standard {
-            return true
-        }
-        if let shared = sharedDefaults, userDefaults === shared {
-            return true
-        }
-        return false
+    static func resolveSharedDefaults(
+        _ resolve: () -> UserDefaults? = { AppGroupSupport.sharedDefaults() }) -> UserDefaults?
+    {
+        guard !self.isRunningTests else { return nil }
+        return resolve()
+    }
+
+    static func shouldBridgeSharedDefaults(for _: UserDefaults) -> Bool {
+        !self.isRunningTests
     }
 
     init(
@@ -332,16 +330,12 @@ final class SettingsStore {
         // Capture this before app-group/config migrations can create prior-installation state.
         let hadExistingConfig = (try? configStore.load()) != nil
         let hadPreviousInstallationState = hadExistingConfig || Self.hadPreviousAppLaunch(userDefaults: userDefaults)
-        let appGroupID = AppGroupSupport.currentGroupID()
-        let appGroupMigration: AppGroupSupport.MigrationResult
-        if Self.isRunningTests {
-            appGroupMigration = AppGroupSupport.migrateLegacyDataIfNeeded(standardDefaults: userDefaults)
-        } else {
-            Self.scheduleAppGroupMigration()
-            appGroupMigration = AppGroupSupport.MigrationResult(status: .targetUnavailable)
-        }
-        let sharedDefaultsAvailable = Self.sharedDefaults != nil
+        // Migration tests inject every dependency directly; ordinary settings tests must not discover user state.
         if !Self.isRunningTests {
+            let appGroupID = AppGroupSupport.currentGroupID()
+            Self.scheduleAppGroupMigration()
+            let appGroupMigration = AppGroupSupport.MigrationResult(status: .targetUnavailable)
+            let sharedDefaultsAvailable = Self.sharedDefaults != nil
             CodexBarLog.logger(LogCategories.settings).info(
                 "App group resolved",
                 metadata: [
