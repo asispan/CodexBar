@@ -77,17 +77,33 @@ struct NousAPIFetchStrategy: ProviderFetchStrategy {
         self.transport = transport
     }
 
+    /// Available whenever some Nous credential exists, even an expired one, so the fetch surfaces the specific
+    /// expiry or trust error instead of a bare "unavailable".
     func isAvailable(_ context: ProviderFetchContext) async -> Bool {
-        NousSettingsReader.credential(environment: context.env) != nil
+        do {
+            _ = try NousSettingsReader.resolveCredential(environment: context.env)
+            return true
+        } catch NousUsageError.missingCredentials {
+            return false
+        } catch {
+            return true
+        }
     }
 
     func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
+        // Credits ride along in the same account response, so attach them regardless of `includeCredits`
+        // (the app only sets that flag for Codex's separate credits request).
         let credential = try NousSettingsReader.resolveCredential(environment: context.env)
         let account = try await NousUsageFetcher.fetchAccount(credential: credential, transport: self.transport)
+        var diagnostic = "portal=\(credential.portalBaseURL.host ?? "?") credential=\(credential.source.label)"
+        if let rejected = credential.rejectedPortalHost {
+            diagnostic += " rejectedStoredHost=\(rejected)"
+        }
         return self.makeResult(
             usage: account.toUsageSnapshot(),
-            credits: context.includeCredits ? account.toCreditsSnapshot() : nil,
-            sourceLabel: "api")
+            credits: account.toCreditsSnapshot(),
+            sourceLabel: "api",
+            diagnostic: diagnostic)
     }
 
     func shouldFallback(on _: Error, context _: ProviderFetchContext) -> Bool {

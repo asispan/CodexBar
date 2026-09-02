@@ -27,6 +27,18 @@ Overrides:
 - `NOUS_PORTAL_ACCESS_TOKEN`: use this token instead of the Hermes files.
 - `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL`: point at a preview portal deployment (HTTPS only).
 
+### Where the token is sent
+
+The bearer token only ever goes to one origin, resolved in this order:
+
+1. An explicit `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL` override (HTTPS, set by you).
+2. The `portal_base_url` stored by Hermes, but only when its host is `nousresearch.com` or a subdomain.
+3. `https://portal.nousresearch.com`.
+
+A stored host outside `nousresearch.com` is ignored, logged as a warning, and reported in the verbose trace as
+`rejectedStoredHost=<host>`; the request then goes to the default portal. Expired tokens, whether from the auth file or
+from `NOUS_PORTAL_ACCESS_TOKEN`, are rejected before any request is made.
+
 ### Why CodexBar never refreshes the token
 
 Nous access tokens live for about an hour. The refresh token is single-use: the portal rotates it on every refresh and
@@ -42,14 +54,20 @@ One request per refresh: `GET {portal}/api/oauth/account` with the bearer token.
 | --- | --- |
 | `subscription.monthly_credits`, `subscription.credits_remaining` | Primary meter "Monthly credits" as percent used |
 | `subscription.current_period_end` | Meter reset time and renewal date |
-| `subscription.plan` | Plan row |
+| `subscription.plan`, `purchased_credits_remaining` | Plan row, e.g. `Ultra · Top-up $19.35` |
 | `subscription.rollover_credits` | Subscription detail row when non-zero |
-| `purchased_credits_remaining` | Credits balance |
+| `purchased_credits_remaining` | Credits balance and the "Top-up credits" detail row |
 | `paid_service_access.total_usable_credits` | Credits detail row |
 | `user.email`, `organisation.name` | Identity (siloed to this provider) |
 
 Money fields are accepted both as JSON numbers and as decimal strings. A Free tier with no monthly grant shows no
 meter and only the purchased balance.
+
+## API keys
+
+Nous Portal API keys authenticate only the inference API (`/v1/chat/completions`, `/v1/completions`). The portal's
+account and billing endpoints accept the OAuth access token only, so CodexBar cannot show credits from an API key.
+Use the Hermes Agent login.
 
 ## CLI
 

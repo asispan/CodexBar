@@ -492,7 +492,8 @@ provider-specific cookie validation, endpoints, login detection, and error trans
   When the stored token expires, the card asks you to run `hermes` so Hermes refreshes it.
 - Reads `GET /api/oauth/account`: monthly subscription credits used/remaining with the cycle reset date, plan name,
   and the purchased credit balance (shown as credits).
-- Override the portal host with `NOUS_PORTAL_BASE_URL` (HTTPS only).
+- The token is only sent to `nousresearch.com` hosts (or an explicit `NOUS_PORTAL_BASE_URL` override you set); an
+  untrusted stored `portal_base_url` is ignored. API keys are inference-only and cannot read credits.
 - Details: `docs/nous.md`.
 
 ## Venice

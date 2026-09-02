@@ -11,6 +11,9 @@ public enum NousSettingsReader: Sendable {
     public static let portalBaseURLEnvironmentKeys = ["NOUS_PORTAL_BASE_URL", "HERMES_PORTAL_BASE_URL"]
     public static let hermesHomeEnvironmentKey = "HERMES_HOME"
     public static let defaultPortalBaseURL = URL(string: "https://portal.nousresearch.com")!
+    /// Hosts a Hermes auth file may point the bearer token at. Anything else falls back to the default portal so a
+    /// tampered or stale `portal_base_url` can never redirect the credential to a third party.
+    public static let trustedPortalHostSuffix = "nousresearch.com"
     /// Tokens closer to expiry than this are treated as expired so a fetch never races the portal clock.
     public static let expirySkew: TimeInterval = 60
 
@@ -31,12 +34,21 @@ public enum NousSettingsReader: Sendable {
         public let portalBaseURL: URL
         public let expiresAt: Date?
         public let source: CredentialSource
+        /// Stored `portal_base_url` that failed the trusted-host policy, kept only for diagnostics.
+        public let rejectedPortalHost: String?
 
-        public init(token: String, portalBaseURL: URL, expiresAt: Date?, source: CredentialSource) {
+        public init(
+            token: String,
+            portalBaseURL: URL,
+            expiresAt: Date?,
+            source: CredentialSource,
+            rejectedPortalHost: String? = nil)
+        {
             self.token = token
             self.portalBaseURL = portalBaseURL
             self.expiresAt = expiresAt
             self.source = source
+            self.rejectedPortalHost = rejectedPortalHost
         }
 
         public func isExpired(now: Date = Date(), skew: TimeInterval = NousSettingsReader.expirySkew) -> Bool {
@@ -59,11 +71,15 @@ public enum NousSettingsReader: Sendable {
         now: Date = Date()) throws -> Credential
     {
         if let token = self.cleaned(environment[self.accessTokenEnvironmentKey]) {
-            return Credential(
+            let credential = Credential(
                 token: token,
-                portalBaseURL: self.portalBaseURL(environment: environment, stored: nil),
+                portalBaseURL: self.portalBaseURL(environment: environment, stored: nil).url,
                 expiresAt: self.jwtExpiry(token),
                 source: .environment)
+            if credential.isExpired(now: now) {
+                throw NousUsageError.environmentTokenExpired
+            }
+            return credential
         }
 
         var expired: Credential?
@@ -74,11 +90,13 @@ public enum NousSettingsReader: Sendable {
             guard let data = try? Data(contentsOf: url),
                   let stored = self.parseAuthFile(data: data)
             else { continue }
+            let resolvedPortal = self.portalBaseURL(environment: environment, stored: stored.portalBaseURL)
             let credential = Credential(
                 token: stored.token,
-                portalBaseURL: self.portalBaseURL(environment: environment, stored: stored.portalBaseURL),
+                portalBaseURL: resolvedPortal.url,
                 expiresAt: stored.expiresAt ?? self.jwtExpiry(stored.token),
-                source: .authFile(url.path))
+                source: .authFile(url.path),
+                rejectedPortalHost: resolvedPortal.rejectedStoredHost)
             if credential.isExpired(now: now) {
                 expired = expired ?? credential
                 continue
@@ -103,16 +121,41 @@ public enum NousSettingsReader: Sendable {
         }
     }
 
-    public static func portalBaseURL(environment: [String: String], stored: String?) -> URL {
+    public struct PortalResolution: Sendable, Equatable {
+        public let url: URL
+        public let origin: PortalOrigin
+        /// Host from a stored `portal_base_url` that was refused by the trusted-host policy.
+        public let rejectedStoredHost: String?
+    }
+
+    public enum PortalOrigin: String, Sendable {
+        case environmentOverride
+        case storedTrusted
+        case `default`
+    }
+
+    /// Resolves the portal origin the bearer token will be sent to.
+    ///
+    /// Precedence: explicit environment override (HTTPS, operator-controlled) → stored auth-file value when its host
+    /// is `nousresearch.com` or a subdomain → the default portal. A stored host outside that policy is never used.
+    public static func portalBaseURL(environment: [String: String], stored: String?) -> PortalResolution {
         for key in self.portalBaseURLEnvironmentKeys {
             if let raw = self.cleaned(environment[key]), let url = self.normalizedHTTPSURL(raw) {
-                return url
+                return PortalResolution(url: url, origin: .environmentOverride, rejectedStoredHost: nil)
             }
         }
         if let stored, let url = self.normalizedHTTPSURL(stored) {
-            return url
+            if self.isTrustedPortalHost(url.host) {
+                return PortalResolution(url: url, origin: .storedTrusted, rejectedStoredHost: nil)
+            }
+            return PortalResolution(url: self.defaultPortalBaseURL, origin: .default, rejectedStoredHost: url.host)
         }
-        return self.defaultPortalBaseURL
+        return PortalResolution(url: self.defaultPortalBaseURL, origin: .default, rejectedStoredHost: nil)
+    }
+
+    public static func isTrustedPortalHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased(), !host.isEmpty else { return false }
+        return host == self.trustedPortalHostSuffix || host.hasSuffix("." + self.trustedPortalHostSuffix)
     }
 
     // MARK: - Hermes auth store

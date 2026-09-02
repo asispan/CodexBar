@@ -44,6 +44,12 @@ public struct NousAccountSummary: Sendable, Equatable {
         self.updatedAt = updatedAt
     }
 
+    /// Plan row text: plan name plus the top-up balance, e.g. "Ultra · Top-up $19.35".
+    public var planRowText: String {
+        let plan = self.plan ?? (self.hasActiveSubscription ? "Subscription" : "Free")
+        return "\(plan) · Top-up \(UsageFormatter.usdString(max(0, self.purchasedCreditsRemaining)))"
+    }
+
     /// Monthly subscription credits consumed this cycle, as a percentage of the monthly grant.
     public var monthlyUsedPercent: Double? {
         guard self.monthlyCredits > 0 else { return nil }
@@ -63,7 +69,7 @@ public struct NousAccountSummary: Sendable, Equatable {
             providerID: .nous,
             accountEmail: self.email,
             accountOrganization: self.organizationName,
-            loginMethod: self.plan ?? (self.hasActiveSubscription ? nil : "Free"))
+            loginMethod: self.planRowText)
         return UsageSnapshot(
             primary: primary,
             secondary: nil,
@@ -84,7 +90,7 @@ public struct NousAccountSummary: Sendable, Equatable {
         if self.monthlyCredits > 0 {
             let remaining = UsageFormatter.usdString(max(0, self.creditsRemaining))
             let monthly = UsageFormatter.usdString(self.monthlyCredits)
-            if let row = try? ProviderDetailSection.Row(label: "Monthly credits", value: "\(remaining) of \(monthly) left") {
+            if let row = try? ProviderDetailSection.Row(label: "Subscription credits", value: "\(remaining) of \(monthly) left") {
                 subscriptionRows.append(row)
             }
         }
@@ -108,7 +114,7 @@ public struct NousAccountSummary: Sendable, Equatable {
 
         var creditRows: [ProviderDetailSection.Row] = []
         if let row = try? ProviderDetailSection.Row(
-            label: "Purchased balance",
+            label: "Top-up credits",
             value: UsageFormatter.usdString(self.purchasedCreditsRemaining))
         {
             creditRows.append(row)
@@ -137,6 +143,7 @@ public enum NousUsageError: LocalizedError, Sendable, Equatable {
     case missingCredentials
     case authFileInvalid(String)
     case sessionExpired(String)
+    case environmentTokenExpired
     case unauthorized
     case networkError(String)
     case apiError(String)
@@ -150,6 +157,8 @@ public enum NousUsageError: LocalizedError, Sendable, Equatable {
             "Hermes auth file at \(path) has no Nous Portal access token. Run `hermes auth add nous` to sign in."
         case let .sessionExpired(path):
             "Nous Portal access token in \(path) has expired. Run `hermes` so Hermes Agent refreshes it."
+        case .environmentTokenExpired:
+            "NOUS_PORTAL_ACCESS_TOKEN has expired. Export a fresh token or unset it to use the Hermes Agent login."
         case .unauthorized:
             "Nous Portal rejected the access token. Run `hermes` to refresh your Hermes Agent login."
         case let .networkError(message):
@@ -172,7 +181,12 @@ public struct NousUsageFetcher: Sendable {
         transport: any ProviderHTTPTransport = ProviderHTTPClient.shared,
         now: Date = Date()) async throws -> NousAccountSummary
     {
-        var request = URLRequest(url: self.accountURL(portalBaseURL: credential.portalBaseURL))
+        let url = self.accountURL(portalBaseURL: credential.portalBaseURL)
+        Self.log.info("Nous Portal account request → \(url.host ?? "?") (source: \(credential.source.label))")
+        if let rejected = credential.rejectedPortalHost {
+            Self.log.warning("Ignored untrusted stored portal_base_url host \(rejected); using \(url.host ?? "?")")
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(credential.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

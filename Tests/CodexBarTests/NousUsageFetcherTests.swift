@@ -51,11 +51,11 @@ struct NousUsageFetcherTests {
         #expect(primary.resetsAt == account.currentPeriodEnd)
         #expect(usage.secondary == nil)
         #expect(usage.subscriptionRenewsAt == account.currentPeriodEnd)
-        #expect(usage.loginMethod(for: .nous) == "Ultra")
+        #expect(usage.loginMethod(for: .nous) == "Ultra · Top-up $19.35")
         #expect(usage.identity(for: .nous)?.accountEmail == "dev@example.com")
         #expect(usage.dataConfidence == .exact)
         #expect(usage.details.map(\.title) == ["Subscription", "Credits"])
-        #expect(usage.details[0].rows.map(\.label) == ["Monthly credits", "Renews"])
+        #expect(usage.details[0].rows.map(\.label) == ["Subscription credits", "Renews"])
         #expect(usage.details[0].rows[0].value == "$55.00 of $220.00 left")
 
         let credits = account.toCreditsSnapshot()
@@ -90,9 +90,10 @@ struct NousUsageFetcherTests {
         let account = try NousUsageFetcher._parseAccountForTesting(Data(json.utf8))
         let usage = account.toUsageSnapshot()
         #expect(usage.primary == nil)
-        #expect(usage.loginMethod(for: .nous) == "Free")
+        #expect(usage.loginMethod(for: .nous) == "Free · Top-up $2.50")
         #expect(account.toCreditsSnapshot().remaining == 2.5)
         #expect(usage.details.map(\.title) == ["Credits"])
+        #expect(usage.details[0].rows.map(\.label) == ["Top-up credits", "Total usable"])
     }
 
     @Test

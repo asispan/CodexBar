@@ -46,6 +46,7 @@ struct NousSettingsReaderTests {
         #expect(credential.token == "env-token")
         #expect(credential.source == .environment)
         #expect(credential.portalBaseURL.absoluteString == "https://preview.portal.example.com")
+        #expect(credential.rejectedPortalHost == nil)
     }
 
     @Test
@@ -156,9 +157,66 @@ struct NousSettingsReaderTests {
 
     @Test
     func `portal base URL rejects non-https overrides`() {
-        #expect(NousSettingsReader.portalBaseURL(environment: ["NOUS_PORTAL_BASE_URL": "http://evil.example"], stored: nil)
-            == NousSettingsReader.defaultPortalBaseURL)
-        #expect(NousSettingsReader.portalBaseURL(environment: [:], stored: "https://stored.example/")
-            .absoluteString == "https://stored.example")
+        let resolution = NousSettingsReader.portalBaseURL(
+            environment: ["NOUS_PORTAL_BASE_URL": "http://evil.example"],
+            stored: nil)
+        #expect(resolution.url == NousSettingsReader.defaultPortalBaseURL)
+        #expect(resolution.origin == .default)
+    }
+
+    @Test
+    func `stored portal host outside nousresearch.com is rejected and never receives the token`() throws {
+        let untrusted = NousSettingsReader.portalBaseURL(environment: [:], stored: "https://stored.example/")
+        #expect(untrusted.url == NousSettingsReader.defaultPortalBaseURL)
+        #expect(untrusted.origin == .default)
+        #expect(untrusted.rejectedStoredHost == "stored.example")
+
+        let lookalike = NousSettingsReader.portalBaseURL(environment: [:], stored: "https://nousresearch.com.evil.example")
+        #expect(lookalike.url == NousSettingsReader.defaultPortalBaseURL)
+        #expect(lookalike.rejectedStoredHost == "nousresearch.com.evil.example")
+
+        let home = try Self.makeHome()
+        let path = home.appendingPathComponent(".hermes/auth.json")
+        try Self.write(
+            Self.authJSON(token: "file-token", expiresAt: "2999-01-01T00:00:00+00:00", portal: "https://stored.example"),
+            to: path)
+        let credential = try NousSettingsReader.resolveCredential(environment: ["HOME": home.path])
+        #expect(credential.portalBaseURL == NousSettingsReader.defaultPortalBaseURL)
+        #expect(credential.rejectedPortalHost == "stored.example")
+        #expect(NousUsageFetcher.accountURL(portalBaseURL: credential.portalBaseURL).host == "portal.nousresearch.com")
+    }
+
+    @Test
+    func `stored nousresearch.com preview hosts are trusted`() {
+        let preview = NousSettingsReader.portalBaseURL(environment: [:], stored: "https://preview.portal.nousresearch.com/")
+        #expect(preview.url.absoluteString == "https://preview.portal.nousresearch.com")
+        #expect(preview.origin == .storedTrusted)
+        #expect(preview.rejectedStoredHost == nil)
+        #expect(NousSettingsReader.isTrustedPortalHost("portal.nousresearch.com"))
+        #expect(NousSettingsReader.isTrustedPortalHost("NousResearch.com"))
+        #expect(!NousSettingsReader.isTrustedPortalHost("evilnousresearch.com"))
+        #expect(!NousSettingsReader.isTrustedPortalHost(nil))
+    }
+
+    @Test
+    func `environment override remains explicit and takes precedence over a stored host`() {
+        let resolution = NousSettingsReader.portalBaseURL(
+            environment: ["NOUS_PORTAL_BASE_URL": "https://preview.portal.example.com"],
+            stored: "https://portal.nousresearch.com")
+        #expect(resolution.url.absoluteString == "https://preview.portal.example.com")
+        #expect(resolution.origin == .environmentOverride)
+    }
+
+    @Test
+    func `expired environment token is rejected before any request`() {
+        let header = Data("{\"alg\":\"none\"}".utf8).base64EncodedString()
+        let payload = Data("{\"exp\": 946684800}".utf8).base64EncodedString().replacingOccurrences(of: "=", with: "")
+        let env = ["HOME": "/nonexistent", "NOUS_PORTAL_ACCESS_TOKEN": "\(header).\(payload).sig"]
+        #expect(NousSettingsReader.credential(environment: env) == nil)
+        #expect {
+            _ = try NousSettingsReader.resolveCredential(environment: env)
+        } throws: { error in
+            error as? NousUsageError == .environmentTokenExpired
+        }
     }
 }
