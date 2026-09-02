@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Nous Portal: new provider showing monthly subscription credits, cycle reset, plan, and purchased credit balance by reusing the Hermes Agent OAuth login from `~/.hermes/auth.json` (#1367).
+
 ## 0.56.3 — 2026-09-01
 
 ### Performance

@@ -1,0 +1,60 @@
+---
+summary: "Nous Portal provider: Hermes Agent OAuth token reuse, account endpoint parsing, and credit display."
+read_when:
+  - Debugging Nous Portal credit or subscription parsing
+  - Explaining why CodexBar asks to run `hermes` to refresh the token
+  - Updating Nous Portal setup or environment variables
+---
+
+# Nous Portal Provider
+
+[Nous Portal](https://portal.nousresearch.com) is Nous Research's subscription and credit portal for the Hermes
+inference API. Plans grant a monthly credit budget that resets each billing cycle; purchased credits top up the
+balance on top of that grant.
+
+## Authentication
+
+Nous Portal only exposes its account and billing endpoints to the OAuth access token minted by the Hermes Agent
+device-code login. CodexBar does not run its own login and does not store any Nous secret:
+
+1. Sign in once with Hermes Agent (`hermes` and choose Nous Portal, or `hermes auth add nous`).
+2. Hermes writes the token to `~/.hermes/auth.json` (and a cross-profile copy to `~/.hermes/shared/nous_auth.json`).
+3. CodexBar reads the access token from those files on every refresh.
+
+Overrides:
+
+- `HERMES_HOME`: directory holding `auth.json` when Hermes runs from a custom root or profile.
+- `NOUS_PORTAL_ACCESS_TOKEN`: use this token instead of the Hermes files.
+- `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL`: point at a preview portal deployment (HTTPS only).
+
+### Why CodexBar never refreshes the token
+
+Nous access tokens live for about an hour. The refresh token is single-use: the portal rotates it on every refresh and
+revokes the entire session when it sees an old one replayed. A second client refreshing behind Hermes's back would
+therefore log Hermes out. CodexBar only reads the current access token and, once it has expired, shows
+"run `hermes` so Hermes Agent refreshes it". Any Hermes command (or a running Hermes gateway) renews the token.
+
+## Data Source
+
+One request per refresh: `GET {portal}/api/oauth/account` with the bearer token.
+
+| Field | Display |
+| --- | --- |
+| `subscription.monthly_credits`, `subscription.credits_remaining` | Primary meter "Monthly credits" as percent used |
+| `subscription.current_period_end` | Meter reset time and renewal date |
+| `subscription.plan` | Plan row |
+| `subscription.rollover_credits` | Subscription detail row when non-zero |
+| `purchased_credits_remaining` | Credits balance |
+| `paid_service_access.total_usable_credits` | Credits detail row |
+| `user.email`, `organisation.name` | Identity (siloed to this provider) |
+
+Money fields are accepted both as JSON numbers and as decimal strings. A Free tier with no monthly grant shows no
+meter and only the purchased balance.
+
+## CLI
+
+```bash
+codexbar usage --provider nous
+```
+
+Aliases: `nous-portal`, `hermes`. Source modes: `auto`, `api`.
