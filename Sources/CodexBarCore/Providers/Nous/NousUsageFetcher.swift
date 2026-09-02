@@ -44,10 +44,10 @@ public struct NousAccountSummary: Sendable, Equatable {
         self.updatedAt = updatedAt
     }
 
-    /// Plan row text: plan name plus the top-up balance, e.g. "Ultra · Top-up $19.35".
+    /// Plan row text. The header column is narrow, so keep it to the plan name; the top-up balance is shown in
+    /// the Credits section and the credits snapshot instead.
     public var planRowText: String {
-        let plan = self.plan ?? (self.hasActiveSubscription ? "Subscription" : "Free")
-        return "\(plan) · Top-up \(UsageFormatter.usdString(max(0, self.purchasedCreditsRemaining)))"
+        self.plan ?? (self.hasActiveSubscription ? "Subscription" : "Free")
     }
 
     /// Monthly subscription credits consumed this cycle, as a percentage of the monthly grant.

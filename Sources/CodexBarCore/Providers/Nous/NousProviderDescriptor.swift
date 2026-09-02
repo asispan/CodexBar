@@ -95,9 +95,15 @@ struct NousAPIFetchStrategy: ProviderFetchStrategy {
         // (the app only sets that flag for Codex's separate credits request).
         let credential = try NousSettingsReader.resolveCredential(environment: context.env)
         let account = try await NousUsageFetcher.fetchAccount(credential: credential, transport: self.transport)
-        var diagnostic = "portal=\(credential.portalBaseURL.host ?? "?") credential=\(credential.source.label)"
-        if let rejected = credential.rejectedPortalHost {
-            diagnostic += " rejectedStoredHost=\(rejected)"
+        // The app renders `diagnostic` as a warning line, so only emit it when there is something to warn about
+        // (an ignored stored host) or when the caller asked for a verbose trace.
+        var diagnostic: String?
+        if credential.rejectedPortalHost != nil || context.verbose {
+            var note = "portal=\(credential.portalBaseURL.host ?? "?") credential=\(credential.source.label)"
+            if let rejected = credential.rejectedPortalHost {
+                note += " rejectedStoredHost=\(rejected)"
+            }
+            diagnostic = note
         }
         return self.makeResult(
             usage: account.toUsageSnapshot(),
