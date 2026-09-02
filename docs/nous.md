@@ -27,13 +27,14 @@ Overrides:
   set, `~/.hermes` is never consulted, so a missing or expired custom profile reports an error rather than silently
   using another profile's login.
 - `NOUS_PORTAL_ACCESS_TOKEN`: use this token instead of the Hermes files.
-- `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL`: point at a preview portal deployment (HTTPS only).
+- `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL`: point at a preview portal deployment. HTTPS only; plain HTTP
+  is refused for every host, loopback included, and the default portal is used instead.
 
 ### Where the token is sent
 
 The bearer token only ever goes to one origin, resolved in this order:
 
-1. An explicit `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL` override (HTTPS, set by you).
+1. An explicit `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL` override (HTTPS only, set by you).
 2. The `portal_base_url` stored by Hermes, but only when its host is `nousresearch.com` or a subdomain.
 3. `https://portal.nousresearch.com`.
 
@@ -56,9 +57,9 @@ One request per refresh: `GET {portal}/api/oauth/account` with the bearer token.
 | --- | --- |
 | `subscription.monthly_credits`, `subscription.credits_remaining` | Primary meter "Monthly credits" as percent used |
 | `subscription.current_period_end` | Meter reset time and renewal date |
-| `subscription.plan`, `purchased_credits_remaining` | Plan row, e.g. `Ultra · Top-up $19.35` |
+| `subscription.plan` | Plan row (plan name only, e.g. `Ultra`) |
 | `subscription.rollover_credits` | Subscription detail row when non-zero |
-| `purchased_credits_remaining` | Credits balance and the "Top-up credits" detail row |
+| `purchased_credits_remaining` | Credits snapshot and the "Top-up credits" row in the Credits section |
 | `paid_service_access.total_usable_credits` | Credits detail row |
 | `user.email`, `organisation.name` | Identity (siloed to this provider) |
 

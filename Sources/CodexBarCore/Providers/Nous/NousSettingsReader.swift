@@ -243,13 +243,15 @@ public enum NousSettingsReader: Sendable {
         return Date(timeIntervalSince1970: exp)
     }
 
+    /// Accepts HTTPS origins only. Plain HTTP is refused for every host, loopback included, so the bearer token
+    /// can never travel in cleartext regardless of where the override came from.
     static func normalizedHTTPSURL(_ raw: String) -> URL? {
         var value = raw
         while value.hasSuffix("/") { value.removeLast() }
-        guard let url = URL(string: value), let scheme = url.scheme?.lowercased(), url.host != nil else { return nil }
-        guard scheme == "https" || (scheme == "http" && (url.host == "localhost" || url.host == "127.0.0.1")) else {
-            return nil
-        }
+        guard let url = URL(string: value),
+              url.scheme?.lowercased() == "https",
+              let host = url.host, !host.isEmpty
+        else { return nil }
         return url
     }
 

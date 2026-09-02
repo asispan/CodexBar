@@ -213,12 +213,18 @@ struct NousSettingsReaderTests {
     }
 
     @Test
-    func `portal base URL rejects non-https overrides`() {
-        let resolution = NousSettingsReader.portalBaseURL(
-            environment: ["NOUS_PORTAL_BASE_URL": "http://evil.example"],
-            stored: nil)
-        #expect(resolution.url == NousSettingsReader.defaultPortalBaseURL)
-        #expect(resolution.origin == .default)
+    func `portal base URL rejects every http override including loopback`() {
+        for raw in ["http://evil.example", "http://localhost:3000", "http://127.0.0.1", "ftp://portal.nousresearch.com"] {
+            let override = NousSettingsReader.portalBaseURL(environment: ["NOUS_PORTAL_BASE_URL": raw], stored: nil)
+            #expect(override.url == NousSettingsReader.defaultPortalBaseURL, "override \(raw) must be refused")
+            #expect(override.origin == .default)
+
+            let stored = NousSettingsReader.portalBaseURL(environment: [:], stored: raw)
+            #expect(stored.url == NousSettingsReader.defaultPortalBaseURL, "stored \(raw) must be refused")
+            #expect(stored.rejectedStoredHost == nil, "a non-HTTPS stored value is discarded, not treated as a host")
+        }
+        #expect(NousSettingsReader.normalizedHTTPSURL("http://localhost") == nil)
+        #expect(NousSettingsReader.normalizedHTTPSURL("https://localhost:8443")?.absoluteString == "https://localhost:8443")
     }
 
     @Test

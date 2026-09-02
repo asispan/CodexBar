@@ -2,6 +2,27 @@ import Foundation
 import Testing
 @testable import CodexBarCore
 
+/// Captures the outgoing request so tests can assert on the final destination and headers.
+private final class NousCapturingTransport: ProviderHTTPTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var captured: [URLRequest] = []
+    let body: Data
+
+    init(body: Data) {
+        self.body = body
+    }
+
+    var requests: [URLRequest] {
+        self.lock.withLock { self.captured }
+    }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        self.lock.withLock { self.captured.append(request) }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (self.body, response)
+    }
+}
+
 struct NousUsageFetcherTests {
     static let accountJSON = """
     {
@@ -131,6 +152,43 @@ struct NousUsageFetcherTests {
         } throws: { error in
             if case NousUsageError.parseFailed = error { return true }
             return false
+        }
+    }
+
+    @Test
+    func `authorization header only ever targets an https nousresearch.com origin`() async throws {
+        let transport = NousCapturingTransport(body: Data(Self.accountJSON.utf8))
+        let token = "hermes-access-token"
+
+        // Environment override pointing at cleartext loopback is refused; the default HTTPS portal is used.
+        let overridden = NousSettingsReader.portalBaseURL(
+            environment: ["NOUS_PORTAL_BASE_URL": "http://127.0.0.1:8080"],
+            stored: nil)
+        let envCredential = NousSettingsReader.Credential(
+            token: token,
+            portalBaseURL: overridden.url,
+            expiresAt: nil,
+            source: .environment)
+        _ = try await NousUsageFetcher.fetchAccount(credential: envCredential, transport: transport)
+
+        // Stored auth-file host outside nousresearch.com is refused the same way.
+        let stored = NousSettingsReader.portalBaseURL(environment: [:], stored: "https://stored.example")
+        let fileCredential = NousSettingsReader.Credential(
+            token: token,
+            portalBaseURL: stored.url,
+            expiresAt: nil,
+            source: .authFile("/tmp/auth.json"),
+            rejectedPortalHost: stored.rejectedStoredHost)
+        _ = try await NousUsageFetcher.fetchAccount(credential: fileCredential, transport: transport)
+
+        let requests = transport.requests
+        #expect(requests.count == 2)
+        for request in requests {
+            let url = try #require(request.url)
+            #expect(url.scheme == "https")
+            #expect(url.host == "portal.nousresearch.com")
+            #expect(url.path == NousUsageFetcher.accountPath)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(token)")
         }
     }
 
