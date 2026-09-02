@@ -487,7 +487,7 @@ provider-specific cookie validation, endpoints, login detection, and error trans
 
 ## Nous Portal
 - Reuses the OAuth access token Hermes Agent stores in `~/.hermes/auth.json` (falls back to `~/.hermes/shared/nous_auth.json`;
-  `HERMES_HOME` overrides the directory). `NOUS_PORTAL_ACCESS_TOKEN` supplies a token directly.
+  `HERMES_HOME` replaces the directory and is exclusive). `NOUS_PORTAL_ACCESS_TOKEN` supplies a token directly.
 - CodexBar never calls the refresh endpoint: Nous refresh tokens are single-use and reuse revokes the Hermes session.
   When the stored token expires, the card asks you to run `hermes` so Hermes refreshes it.
 - Reads `GET /api/oauth/account`: monthly subscription credits used/remaining with the cycle reset date, plan name,

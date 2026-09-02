@@ -82,6 +82,63 @@ struct NousSettingsReaderTests {
     }
 
     @Test
+    func `HERMES_HOME is exclusive: a missing custom profile never falls back to the default root`() throws {
+        let home = try Self.makeHome()
+        let custom = home.appendingPathComponent("custom-hermes", isDirectory: true)
+        try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+        try Self.write(
+            Self.authJSON(token: "default-token", expiresAt: "2999-01-01T00:00:00+00:00"),
+            to: home.appendingPathComponent(".hermes/auth.json"))
+        let env = ["HOME": home.path, "HERMES_HOME": custom.path]
+
+        #expect(NousSettingsReader.authFileCandidates(environment: env).allSatisfy { $0.path.hasPrefix(custom.path) })
+        #expect(NousSettingsReader.credential(environment: env) == nil)
+        #expect {
+            _ = try NousSettingsReader.resolveCredential(environment: env)
+        } throws: { error in
+            error as? NousUsageError == .missingCredentials
+        }
+    }
+
+    @Test
+    func `HERMES_HOME is exclusive: an expired custom profile reports expiry instead of another profile`() throws {
+        let home = try Self.makeHome()
+        let custom = home.appendingPathComponent("custom-hermes", isDirectory: true)
+        try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+        try Self.write(
+            Self.authJSON(token: "default-token", expiresAt: "2999-01-01T00:00:00+00:00"),
+            to: home.appendingPathComponent(".hermes/auth.json"))
+        let customAuth = custom.appendingPathComponent("auth.json")
+        try Self.write(Self.authJSON(token: "stale", expiresAt: "2000-01-01T00:00:00+00:00"), to: customAuth)
+        let env = ["HOME": home.path, "HERMES_HOME": custom.path]
+
+        #expect {
+            _ = try NousSettingsReader.resolveCredential(environment: env)
+        } throws: { error in
+            error as? NousUsageError == .sessionExpired(customAuth.path)
+        }
+    }
+
+    @Test
+    func `HERMES_HOME is exclusive: an invalid custom profile reports the invalid file`() throws {
+        let home = try Self.makeHome()
+        let custom = home.appendingPathComponent("custom-hermes", isDirectory: true)
+        try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+        try Self.write(
+            Self.authJSON(token: "default-token", expiresAt: "2999-01-01T00:00:00+00:00"),
+            to: home.appendingPathComponent(".hermes/auth.json"))
+        let customAuth = custom.appendingPathComponent("auth.json")
+        try Self.write("{ \"version\": 1, \"providers\": {} }", to: customAuth)
+        let env = ["HOME": home.path, "HERMES_HOME": custom.path]
+
+        #expect {
+            _ = try NousSettingsReader.resolveCredential(environment: env)
+        } throws: { error in
+            error as? NousUsageError == .authFileInvalid(customAuth.path)
+        }
+    }
+
+    @Test
     func `falls back to shared store when profile token is expired`() throws {
         let home = try Self.makeHome()
         try Self.write(

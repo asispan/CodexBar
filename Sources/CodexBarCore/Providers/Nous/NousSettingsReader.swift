@@ -167,24 +167,17 @@ public enum NousSettingsReader: Sendable {
     }
 
     /// Hermes stores per-profile credentials in `auth.json` and a cross-profile copy in `shared/nous_auth.json`.
+    ///
+    /// An explicit `HERMES_HOME` is the exclusive credential root: when it is set, the default `~/.hermes` root is
+    /// never consulted, so a missing, invalid, or expired custom profile can never fall through to another
+    /// profile's token.
     static func authFileCandidates(environment: [String: String]) -> [URL] {
-        var roots: [URL] = []
-        if let override = self.cleaned(environment[self.hermesHomeEnvironmentKey]) {
-            roots.append(URL(fileURLWithPath: NSString(string: override).expandingTildeInPath, isDirectory: true))
+        let root: URL = if let override = self.cleaned(environment[self.hermesHomeEnvironmentKey]) {
+            URL(fileURLWithPath: NSString(string: override).expandingTildeInPath, isDirectory: true)
+        } else {
+            self.defaultHermesHome(environment: environment)
         }
-        roots.append(self.defaultHermesHome(environment: environment))
-
-        var seen = Set<String>()
-        var candidates: [URL] = []
-        for root in roots {
-            for relative in ["auth.json", "shared/nous_auth.json"] {
-                let url = root.appendingPathComponent(relative)
-                if seen.insert(url.path).inserted {
-                    candidates.append(url)
-                }
-            }
-        }
-        return candidates
+        return ["auth.json", "shared/nous_auth.json"].map { root.appendingPathComponent($0) }
     }
 
     static func defaultHermesHome(environment: [String: String]) -> URL {

@@ -23,7 +23,9 @@ device-code login. CodexBar does not run its own login and does not store any No
 
 Overrides:
 
-- `HERMES_HOME`: directory holding `auth.json` when Hermes runs from a custom root or profile.
+- `HERMES_HOME`: directory holding `auth.json` when Hermes runs from a custom root or profile. It is exclusive: when
+  set, `~/.hermes` is never consulted, so a missing or expired custom profile reports an error rather than silently
+  using another profile's login.
 - `NOUS_PORTAL_ACCESS_TOKEN`: use this token instead of the Hermes files.
 - `NOUS_PORTAL_BASE_URL` / `HERMES_PORTAL_BASE_URL`: point at a preview portal deployment (HTTPS only).
 
