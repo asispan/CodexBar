@@ -50,18 +50,36 @@ extension UsageStore {
                 return
             }
 
-            let widgetSnapshotURL = self.widgetSnapshotURL
-            await Task.detached(priority: .utility) {
-                if let widgetSnapshotURL {
-                    WidgetSnapshotStore.save(snapshot, to: widgetSnapshotURL)
-                } else {
-                    WidgetSnapshotStore.save(snapshot)
-                }
-            }.value
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadAllTimelines()
-            #endif
+            await Self.saveWidgetSnapshot(
+                snapshot,
+                to: self.widgetSnapshotURL,
+                isRunningTests: SettingsStore.isRunningTests,
+                reloadTimelines: self.widgetTimelineReloader)
         }
+    }
+
+    static func saveWidgetSnapshot(
+        _ snapshot: WidgetSnapshot,
+        to url: URL?,
+        isRunningTests: Bool,
+        reloadTimelines: @MainActor () -> Void) async
+    {
+        await Task.detached(priority: .utility) {
+            if let url {
+                WidgetSnapshotStore.save(snapshot, to: url)
+            } else {
+                WidgetSnapshotStore.save(snapshot)
+            }
+        }.value
+        // Opting into file persistence in tests never opts into WidgetKit side effects.
+        guard !isRunningTests else { return }
+        reloadTimelines()
+    }
+
+    static func reloadWidgetTimelines() {
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     /// Builds outbound snapshots only from this Mac's UsageStore; remote fleet snapshots live in CloudSyncState.

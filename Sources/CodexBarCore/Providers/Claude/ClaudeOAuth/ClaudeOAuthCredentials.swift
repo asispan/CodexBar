@@ -90,7 +90,7 @@ public enum ClaudeOAuthCredentialsStore {
     private static let directKeychainReadConsentRevocationMarkerKey =
         "ClaudeOAuthDirectKeychainReadConsentRevocationMarkerV1"
     private static var sharedDefaults: UserDefaults {
-        UserDefaults(suiteName: "com.steipete.codexbar") ?? .standard
+        ClaudeOAuthApplicationDefaults.resolve(domain: "com.steipete.codexbar")
     }
 
     private static let pendingCodexBarOAuthKeychainCacheClearStore: ClaudeOAuthPendingCacheClearStore =
