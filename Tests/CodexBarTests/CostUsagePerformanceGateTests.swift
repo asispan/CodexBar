@@ -410,7 +410,7 @@ struct CostUsagePerformanceGateTests {
             + "elapsed=\(warmScannerTiming.elapsed) cpu=\(warmScannerTiming.cpu)")
     }
 
-    @Test(arguments: ["43609cc56f76a003", "c6c46a376ba16304", "b77d4ec72e14ea63"])
+    @Test(arguments: ["43609cc56f76a003", "c6c46a376ba16304", "b77d4ec72e14ea63", "e3fca1e6d81137d6"])
     func `compatible predecessor store adoption performs zero session head parses`(predecessorHash: String) throws {
         let env = try CostUsageTestEnvironment()
         defer { env.cleanup() }
@@ -442,6 +442,8 @@ struct CostUsagePerformanceGateTests {
             requestedScanWindow: (
                 sinceKey: CostUsageScanner.CostUsageDayRange.dayKey(from: day),
                 untilKey: CostUsageScanner.CostUsageDayRange.dayKey(from: day)))
+        let originalFileNumber = try #require(FileManager.default.attributesOfItem(
+            atPath: predecessorStore.databaseURL.path)[.systemFileNumber] as? NSNumber)
 
         var warmOptions = coldOptions
         warmOptions.cacheRoot = env.cacheRoot
@@ -458,6 +460,8 @@ struct CostUsagePerformanceGateTests {
         }
 
         #expect(counter.value == 0)
+        #expect(try FileManager.default.attributesOfItem(
+            atPath: predecessorStore.databaseURL.path)[.systemFileNumber] as? NSNumber == originalFileNumber)
         #expect(warm.data == cold.data)
         #expect(warm.summary == cold.summary)
     }

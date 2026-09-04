@@ -3,6 +3,35 @@
     <channel>
         <title>CodexBar</title>
         <item>
+            <title>0.56.4</title>
+            <pubDate>Thu, 03 Sep 2026 06:11:55 -0700</pubDate>
+            <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
+            <sparkle:version>135</sparkle:version>
+            <sparkle:shortVersionString>0.56.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>CodexBar 0.56.4</h2>
+<h3>Fixed</h3>
+<ul>
+<li>Codex: let cost-history catch-up finish while active rollout files keep growing, preserving complete session and subagent accounting without publishing partial tails (#3243, #3314). Thanks @LeoLin990405!</li>
+<li>Antigravity: restore token history from newer local sessions whose timestamps moved to the steps table, while rejecting missing, duplicate, or conflicting timestamp evidence instead of inventing dates (#3266, #3396). Thanks @chid!</li>
+<li>Codex: keep each managed account&#x27;s selected workspace authoritative across stacked refreshes, credits, history, menu rows, reconciliation, and System Account promotion instead of reverting to or rewriting the auth file&#x27;s default workspace (#3347, #3348, #3386). Thanks @krevoit!</li>
+<li>Settings: prevent scrolled detail content from bleeding through the native title bar while retaining the edge-to-edge sidebar and native window title (#3235, #3315). Thanks @LeoLin990405!</li>
+<li>Claude: recognize Cloudflare web challenges without discarding valid cached cookies or prior usage, and offer explicit OAuth or network recovery guidance (#3367, #3375). Thanks @TPuHo4u!</li>
+<li>Antigravity: recover Linux port discovery when <code>lsof</code> fails with mount-namespace warnings, while preserving authentication errors and the existing startup deadline (#3362, #3364). Thanks @srijits!</li>
+<li>Menu bar: let live forecast and detail labels use the full row width, preventing text from clipping to its previous width until the menu reopens (#3370).</li>
+<li>Settings: open the About pane from the application menu as well as the status menu, reusing the existing Settings window (#3391). Thanks @elijahfriedman!</li>
+<li>Menu bar: discard non-finite saved status-item positions before AppKit restores them, preserving valid placements (#3361; investigated alongside #3355). Thanks @foobra!</li>
+<li>Claude: remove misleading defaults-suite warnings at launch while preserving shared OAuth preferences for the CLI and widget (#3381, #3384). Thanks @andresg747!</li>
+</ul>
+<h3>Documentation</h3>
+<ul>
+<li>AWS Bedrock: explain that monitoring API calls may incur charges, how shared refresh controls affect them, and why Manual mode and the displayed budget do not impose a billing cap (#3387, #3393). Thanks @kyen99!</li>
+</ul>
+<p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
+]]></description>
+            <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.56.4/CodexBar-macos-universal-0.56.4.zip" length="68345622" type="application/octet-stream" sparkle:edSignature="1mCoyhn7I6ciigFUxURMJdQNqlk1e6vcnAc307rHv2kk8o51wv9Ul9BN5iMBdxuU0gOiKLb+WO4zBqkQx0/1BA=="/>
+        </item>
+        <item>
             <title>0.56.3</title>
             <pubDate>Tue, 01 Sep 2026 14:58:57 -0700</pubDate>
             <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
@@ -61,45 +90,6 @@
 <p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
 ]]></description>
             <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.56.2/CodexBar-macos-universal-0.56.2.zip" length="67994843" type="application/octet-stream" sparkle:edSignature="DVEZH+XJR3/M+OTGPirdrzSLRnV2CVadI9ihiIgM9J65IiXXhc9vNi6wNkExJ4tvgbh0YXuNKdTM/eHPi2jeAw=="/>
-        </item>
-        <item>
-            <title>0.56.1</title>
-            <pubDate>Sun, 30 Aug 2026 03:19:17 -0700</pubDate>
-            <link>https://raw.githubusercontent.com/steipete/CodexBar/main/appcast.xml</link>
-            <sparkle:version>132</sparkle:version>
-            <sparkle:shortVersionString>0.56.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>CodexBar 0.56.1</h2>
-<h3>Performance</h3>
-<ul>
-<li>Codex: load saved cost totals in one pass per file instead of rescanning history for every day and model, preserving costs and token totals (follow-up to #3247). Thanks @robertoecf!</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-<li>Menu bar: preserve measured card heights across cached provider tabs, preventing plugin cards from clipping on the first tab switch after launch.</li>
-<li>Privacy: honor “Hide personal information” for project/source names and paths in cost history and project names in Usage &amp; Spend, preserving costs, tokens, and stored data (#3262). Thanks @vinschger!</li>
-<li>Codex: show completed cost catch-up without starting another scan, preserve scan timestamps, and retain prior totals when native or Pi/OMP history is unavailable (partial follow-up to #3243). Thanks @zhulijin1991!</li>
-<li>Codex: preserve calendar spacing in inline cost charts, keep unscanned and unpriced days unknown, honor the selected time zone, and fit year-long histories within the menu (#3232). Thanks @findwangdi!</li>
-<li>Keychain: honor saved disabled-access preferences before startup credential migration, including shared settings, and keep deferred migrations retryable (investigated alongside #3249). Thanks @jaychou0642-create!</li>
-<li>Antigravity: recognize an already-running <code>agy</code> even when its command line uses a bare name, and preserve CLI sign-in guidance when the IDE fallback is unavailable (follow-up to #3146). Thanks @haixing23!</li>
-<li>Antigravity: make existing local token history available in CLI cost, serve, and dashboard selection, keeping unknown dollar costs and unavailable history distinct from zero usage (investigated alongside #3266). Thanks @chid!</li>
-<li>Cursor: correctly decode BOM-less ASCII UTF-16LE app-token database values without changing other decoding or cached-account fallback rules (extracted from #2398). Thanks @markmay!</li>
-<li>Claude: price the documented Kimi <code>k3[1m]</code> context alias in local usage reports and refresh affected Pi costs, without changing model names or native Codex caches (investigated alongside #2374). Thanks @joeVenner!</li>
-<li>Localization: translate missing Catalan iCloud, spend, and Plugins sidebar labels, restore the Projects translation, and align command labels and instructions with their UI roles (#3245). Thanks @pmontp19!</li>
-</ul>
-<h3>Diagnostics</h3>
-<ul>
-<li>Codex: add redacted weekly-reset diagnostics for candidate admission, expiry, and account-scoped storage requests; reset publication rules are unchanged (investigated alongside #3248). Thanks @kcharlan!</li>
-</ul>
-<h3>Documentation</h3>
-<ul>
-<li>Clarify the Codex cost-history refresh floor and explain that Manual stops recurring refreshes, not startup or pending catch-up scans.</li>
-<li>Distinguish OpenCode-backed Codex OAuth quota from unsupported OpenCode session cost imports, preserving provider and account boundaries (investigated alongside #3273). Thanks @pedrommone!</li>
-<li>Document existing z.ai credit quotas and explain how to configure independent provider widgets.</li>
-</ul>
-<p><a href="https://github.com/steipete/CodexBar/blob/main/CHANGELOG.md">View full changelog</a></p>
-]]></description>
-            <enclosure url="https://github.com/steipete/CodexBar/releases/download/v0.56.1/CodexBar-macos-universal-0.56.1.zip" length="67705238" type="application/octet-stream" sparkle:edSignature="vzj/LiuNc7Zh4jFbvEE0phV6mFjSj/48Z0dbwh/voZMupTmMiDVbXZQjMYgjYHXy/kG7CUlLGC0OfLuspC3uDw=="/>
         </item>
         <item>
             <title>0.14.0</title>

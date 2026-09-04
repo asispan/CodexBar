@@ -856,6 +856,45 @@ final class MenuLayoutScreenshotRenderTests: XCTestCase {
 }
 
 extension MenuLayoutScreenshotRenderTests {
+    func test_renderClaudeUsageDetailProof() throws {
+        guard let dir = ProcessInfo.processInfo.environment["CODEXBAR_CLAUDE_DETAIL_SCREENSHOT_DIR"] else {
+            throw XCTSkip("Set CODEXBAR_CLAUDE_DETAIL_SCREENSHOT_DIR to render the Claude detail proof.")
+        }
+        let expected = ProcessInfo.processInfo.environment["CODEXBAR_CLAUDE_DETAIL_EXPECTED_NOTE"]
+            ?? "Limited usage detail"
+        let directory = URL(fileURLWithPath: dir, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try CodexBarLocalizationOverride.$appLanguage.withValue("en") {
+            let snapshot = ClaudeUsageDetailTestSupport.snapshot()
+            XCTAssertNil(snapshot.identity)
+            let model = ClaudeUsageDetailTestSupport.model(
+                snapshot: snapshot,
+                lastError: "Could not refresh. Showing last-known usage captured 5 minutes ago.",
+                sourceLabel: "auto")
+            XCTAssertEqual(model.usageNotes, [expected])
+            for dark in [false, true] {
+                let view = AnyView(UsageMenuCardView(model: model, width: Self.width)
+                    .environment(\.locale, Locale(identifier: "en_US_POSIX"))
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                    .environment(\.displayScale, 2)
+                    .environment(\.accessibilityEnabled, true)
+                    .background(Color(nsColor: .windowBackgroundColor)))
+                let hosting = NSHostingView(rootView: view)
+                hosting.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+                let name = "claude-detail-\(dark ? "dark" : "light")"
+                let png = try XCTUnwrap(Self.pngData(hosting: hosting))
+                try png.write(to: directory.appendingPathComponent("\(name).png"))
+                let accessibility = Self.accessibilityText(hosting)
+                XCTAssertTrue(accessibility.contains(expected), accessibility)
+                XCTAssertTrue(accessibility.contains("last-known usage"), accessibility)
+                try accessibility.write(
+                    to: directory.appendingPathComponent("\(name)-accessibility.txt"),
+                    atomically: true,
+                    encoding: .utf8)
+            }
+        }
+    }
+
     func test_renderOllamaMonthlyCompatibilityProof() throws {
         guard let dir = ProcessInfo.processInfo.environment["CODEXBAR_OLLAMA_MONTHLY_SCREENSHOT_DIR"] else {
             throw XCTSkip("Set CODEXBAR_OLLAMA_MONTHLY_SCREENSHOT_DIR to render the Ollama compatibility proof.")

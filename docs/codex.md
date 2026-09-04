@@ -228,6 +228,10 @@ is limited, using additional rows when needed.
     time; a concurrent database change requests a rescan. Fresh database opens retain integrity validation.
   - Saved day/model aggregates group each file's usage rows in one pass per aggregate build. Packed token totals,
     authoritative costs (including zero), and standard/priority estimation buckets retain their existing meanings.
+  - Fully read empty session fragments retain completion records even when another file contributes the same session.
+    They contribute no usage and reparse from the start if they grow. Usage-bearing duplicates and incomplete fragments
+    keep their existing accounting and retry rules. Existing 0.56.4 cost caches are adopted without rebuilding
+    stored usage, retained reports, or partial-scan checkpoints.
   - Priority trace scans resume after ordinary log pruning when enough distributed content anchors still match;
     changed source rows, replaced databases, or insufficient matching anchors require a fresh scan. Temporary
     trace-database failures retain the last validated report pricing and leave scan freshness unchanged for retry.
